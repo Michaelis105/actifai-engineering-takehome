@@ -156,7 +156,6 @@ async function aggregateSales({ startDate, endDate }) {
 
 const aggregateSalesByUserQuery = `
     SELECT
-      u.name                                AS "username",
       MIN(s.amount)                         AS "minSale",
       MAX(s.amount)                         AS "maxSale",
       ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
@@ -167,14 +166,22 @@ const aggregateSalesByUserQuery = `
       SUM(s.amount)                         AS "totalRevenue"
     FROM sales s
     JOIN users u ON s.user_id = u.id
-    WHERE u.name = $1
+    WHERE u.name = ANY($1::text[])
       AND ($2::date IS NULL OR s.date >= $2::date)
       AND ($3::date IS NULL OR s.date <= $3::date)
-    GROUP BY u.name
+      AND ($4::int IS NULL OR s.amount >= $4::int)
+      AND ($5::int IS NULL OR s.amount <= $5::int)
     HAVING COUNT(s.id) > 0
   `;
-async function aggregateSalesByUser({ username, startDate, endDate }) {
-  const params = [username, startDate || null, endDate || null];
+async function aggregateSalesByUser({ userNames, startDate, endDate, minAmount, maxAmount}) {
+  const usernameList = Array.isArray(userNames) ? userNames : [userNames];
+  const params = [
+    usernameList, 
+    startDate || null, 
+    endDate   || null, 
+    minAmount  ? Number(minAmount) : null,
+    maxAmount  ? Number(maxAmount) : null
+  ];
   const salesAnalytics = await executeQuery(aggregateSalesByUserQuery, params);
   //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
   return salesAnalytics.rows[0] || null;
@@ -182,7 +189,6 @@ async function aggregateSalesByUser({ username, startDate, endDate }) {
 
 const aggregateSalesByGroupQuery = `
     SELECT
-      g.name                                AS "groupName",
       MIN(s.amount)                         AS "minSale",
       MAX(s.amount)                         AS "maxSale",
       ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
@@ -195,14 +201,22 @@ const aggregateSalesByGroupQuery = `
     JOIN users u ON s.user_id = u.id
     JOIN user_groups ug ON u.id = ug.user_id
     JOIN groups g ON ug.group_id = g.id
-    WHERE g.name = $1
+    WHERE g.name = ANY($1::text[])
       AND ($2::date IS NULL OR s.date >= $2::date)
       AND ($3::date IS NULL OR s.date <= $3::date)
-    GROUP BY g.name
+      AND ($4::int IS NULL OR s.amount >= $4::int)
+      AND ($5::int IS NULL OR s.amount <= $5::int)
     HAVING COUNT(s.id) > 0
   `;
-async function aggregateSalesByGroup({ groupName, startDate, endDate }) {
-  const params = [groupName, startDate || null, endDate || null];
+async function aggregateSalesByGroup({ groupNames, startDate, endDate, minAmount, maxAmount }) {
+  const groupNameList = Array.isArray(groupNames) ? groupNames : [groupNames];
+  const params = [
+    groupNameList, 
+    startDate || null, 
+    endDate   || null, 
+    minAmount  ? Number(minAmount) : null,
+    maxAmount  ? Number(maxAmount) : null
+  ];
   const salesAnalytics = await executeQuery(aggregateSalesByGroupQuery, params);
   //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
   return salesAnalytics.rows[0] || null;

@@ -37,15 +37,19 @@ async function start() {
    * - Prefixed search
    * - GraphQL substitute
    * - Request decorator
+   * - Additional exclusionary searches
    * - Query Parameter validation extracted to separate module
    *
    * @apiParam {}
    * @param {Object} req - Express request object.
    * @param {Object} req.query - URL query parameters.
-   * @param {string} [req.query.startDate] - Sales starting from YYYY-MM-DD
-   * @param {string} [req.query.endDate] - Sales up to (including) YYYY-MM-DD
-   * @param {string} [req.query.username] - Sales specifically to user by username
-   * @param {string} [req.query.groupName] - Sales of all users belonging to group by groupName
+   * @param {string} [req.query.startDate] - Aggregate sales starting from YYYY-MM-DD
+   * @param {string} [req.query.endDate] - Aggregate sales up to (including) YYYY-MM-DD
+   * @param {string} [req.query.minAmount] - Aggregate sales starting from a sale amount
+   * @param {string} [req.query.maxAmount] - Aggregate sales up to (including) a sale amount
+   * @param {string} [req.query.endDate] - Aggregate sales up to (including) YYYY-MM-DD
+   * @param {string[]} [req.query.userNames] - Aggregate sales specifically to user by username(s)
+   * @param {string[]} [req.query.groupNames] - Aggregate sales of all users belonging to group by group name(s)
    * @param {number} [req.query.limit=10] - Number of items to return for a given page.
    * @param {number} [req.query.page=1] - Current page number for pagination.
    * @param {Object} res - Express response object.
@@ -73,12 +77,13 @@ async function start() {
   });
 
   /**
-   * Returns a customized, summarized aggregation of sales data,
+   * Generates customized, summarized aggregation of sales data
    * typically for sales analysis purposes.
    * 
    * TODO: Extension
    * - Top N performers
-   * - Min/Max/Midpoint
+   * - Granuality
+   * - Performance comparisons over granularity
    * 
    * TODO: Super Extension
    * - Prefixed search
@@ -92,8 +97,11 @@ async function start() {
    * @param {Object} req.query - URL query parameters.
    * @param {string} [req.query.startDate] - Aggregate sales starting from YYYY-MM-DD
    * @param {string} [req.query.endDate] - Aggregate sales up to (including) YYYY-MM-DD
-   * @param {string} [req.query.username] - Aggregate sales specifically to user by username
-   * @param {string} [req.query.groupName] - Aggregate sales of all users belonging to group by groupName
+   * @param {string} [req.query.minAmount] - Aggregate sales starting from a sale amount
+   * @param {string} [req.query.maxAmount] - Aggregate sales up to (including) a sale amount
+   * @param {string} [req.query.endDate] - Aggregate sales up to (including) YYYY-MM-DD
+   * @param {string[]} [req.query.userNames] - Aggregate sales specifically to user by username(s)
+   * @param {string[]} [req.query.groupNames] - Aggregate sales of all users belonging to group by group name(s)
    * @param {Object} res - Express response object.
    * @returns {Promise<Response>} Resolution payload.
    */
@@ -101,19 +109,37 @@ async function start() {
     const {
       startDate,
       endDate,
-      username,
-      groupName,
+      minAmount,
+      maxAmount,
     } = req.query;
-    if (username && groupName) {
-      return res.status(400).json({ error: 'userName and groupName are mutually exclusive — provide one or the other' });
+    const userNames = req.query.userNames ? req.query.userNames.split(',').map(s => s.trim()).filter(s => s.length > 0)
+  : null;
+    const groupNames = req.query.groupNames ? req.query.groupNames.split(',').map(s => s.trim()).filter(s => s.length > 0)
+  : null;
+    if (userNames && groupNames) {
+      return res.status(400).json({ error: 'userNames and groupNames are mutually exclusive — provide one or the other' });
+    }
+
+    if (minAmount && isNaN(Number(minAmount))) {
+      return res.status(400).json({ error: 'minAmount must be a number' });
+    }
+    
+    if (maxAmount && isNaN(Number(maxAmount))) {
+      return res.status(400).json({ error: 'maxAmount must be a number' });
+    }
+    
+    if (minAmount && maxAmount && Number(minAmount) > Number(maxAmount)) {
+      return res.status(400).json({ error: 'minAmount cannot be greater than maxAmount' });
     }
 
     try {
       const salesPerformanceAggregation = await dataService.getSalesPerformances({
         startDate,
         endDate,
-        username,
-        groupName,
+        minAmount,
+        maxAmount,
+        userNames,
+        groupNames,
       });
       return res.json({...salesPerformanceAggregation});
     } catch (err) {

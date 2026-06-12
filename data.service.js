@@ -5,24 +5,26 @@ async function seedDatabase() {
     return dbClient.seedDatabase()
 }
 
-async function getSales({startDate, endDate, username, groupName}) {
+async function getSales({startDate, endDate, userNames, groupNames}) {
     console.log(...arguments)
     // return await dbClient.getSales(startDate, endDate, username, groupName);
 }
 
-async function getSalesPerformances({startDate, endDate, username, groupName}) {
+async function getSalesPerformances({startDate, endDate, minAmount, maxAmount, userNames, groupNames}) {
     console.debug(...arguments)
     let salesPerformance;
-    if (!username && !groupName) {
-        salesPerformance = await dbClient.aggregateSales({startDate, endDate});
-    } else if (username) {
-        salesPerformance = await dbClient.aggregateSalesByUser({username, startDate, endDate});
-    } else if (groupName) {
-        salesPerformance = await dbClient.aggregateSalesByGroup({groupName, startDate, endDate});
+    if (!userNames && !groupNames) {
+        salesPerformance = await dbClient.aggregateSales({startDate, endDate, minAmount, maxAmount});
+    } else if (userNames) {
+        salesPerformance = await dbClient.aggregateSalesByUser({userNames, startDate, endDate, minAmount, maxAmount});
+    } else if (groupNames) {
+        salesPerformance = await dbClient.aggregateSalesByGroup({groupNames, startDate, endDate, minAmount, maxAmount});
     } else {
         throw new Error('Something went wrong...');
     }
-    return salesPerformance ? formatAggregateData(salesPerformance) : { message: "No sales data within date range."}
+    result = salesPerformance ? formatAggregateData(salesPerformance) : { message: "No sales data within search criteria."}
+    console.log(result)
+    return result
 }
 
 /**
