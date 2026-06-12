@@ -136,6 +136,7 @@ const aggregateSalesQuery = `
       MIN(s.amount)                         AS "minSale",
       MAX(s.amount)                         AS "maxSale",
       ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
+      ROUND(STDDEV(s.amount)::numeric, 2)   AS "stddevSale",
       ROUND(
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
       , 2)                                  AS "medianSale",
@@ -150,7 +151,6 @@ const aggregateSalesQuery = `
 async function aggregateSales({ startDate, endDate }) {
   const params = [startDate || null, endDate || null];
   const salesAnalytics = await executeQuery(aggregateSalesQuery, params);
-  //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
   return salesAnalytics.rows[0] || null;
 }
 
@@ -159,6 +159,7 @@ const aggregateSalesByUserQuery = `
       MIN(s.amount)                         AS "minSale",
       MAX(s.amount)                         AS "maxSale",
       ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
+      ROUND(STDDEV(s.amount)::numeric, 2)   AS "stddevSale",
       ROUND(
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
       , 2)                                  AS "medianSale",
@@ -183,7 +184,6 @@ async function aggregateSalesByUser({ userNames, startDate, endDate, minAmount, 
     maxAmount  ? Number(maxAmount) : null
   ];
   const salesAnalytics = await executeQuery(aggregateSalesByUserQuery, params);
-  //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
   return salesAnalytics.rows[0] || null;
 }
 
@@ -192,6 +192,7 @@ const aggregateSalesByGroupQuery = `
       MIN(s.amount)                         AS "minSale",
       MAX(s.amount)                         AS "maxSale",
       ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
+      ROUND(STDDEV(s.amount)::numeric, 2)   AS "stddevSale",
       ROUND(
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
       , 2)                                  AS "medianSale",
@@ -218,7 +219,39 @@ async function aggregateSalesByGroup({ groupNames, startDate, endDate, minAmount
     maxAmount  ? Number(maxAmount) : null
   ];
   const salesAnalytics = await executeQuery(aggregateSalesByGroupQuery, params);
-  //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
+  return salesAnalytics.rows[0] || null;
+}
+
+const aggregateSalesByRoleQuery = `
+    SELECT
+      MIN(s.amount)                                                 AS "minSale",
+      MAX(s.amount)                                                 AS "maxSale",
+      ROUND(AVG(s.amount)::numeric, 2)                              AS "avgSale",
+      ROUND(STDDEV(s.amount)::numeric, 2)                           AS "stddevSale",
+      ROUND(
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
+      , 2)                                                          AS "medianSale",
+      COUNT(s.id)                                                   AS "saleCount",
+      SUM(s.amount)                                                 AS "totalRevenue"
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    WHERE u.role = ANY($1::text[])
+      AND ($2::date IS NULL OR s.date >= $2::date)
+      AND ($3::date IS NULL OR s.date <= $3::date)
+      AND ($4::int IS NULL OR s.amount >= $4::int)
+      AND ($5::int IS NULL OR s.amount <= $5::int)
+    HAVING COUNT(s.id) > 0
+  `;
+async function aggregateSalesByRole({ roleNames, startDate, endDate, minAmount, maxAmount }) {
+  const roleNamesList = Array.isArray(roleNames) ? roleNames : [roleNames];
+  const params = [
+    roleNamesList, 
+    startDate || null,
+    endDate   || null, 
+    minAmount  ? Number(minAmount) : null,
+    maxAmount  ? Number(maxAmount) : null
+  ];
+  const salesAnalytics = await executeQuery(aggregateSalesByRoleQuery, params);
   return salesAnalytics.rows[0] || null;
 }
 
@@ -236,4 +269,4 @@ const executeQuery = async function(query, params) {
     }
 }
 
-module.exports = { seedDatabase, getSales, aggregateSales, aggregateSalesByUser, aggregateSalesByGroup, executeQuery };
+module.exports = { seedDatabase, getSales, aggregateSales, aggregateSalesByUser, aggregateSalesByGroup, aggregateSalesByRole, executeQuery };

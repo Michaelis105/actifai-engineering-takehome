@@ -26,12 +26,15 @@ async function start() {
    * 
    * For summarized aggregations and analytics - use /sales-analytics instead.
    * 
-   * TODO: Extension
+   * TODO: 
    * - Retrieve list of sales
-   * - Limit/Pagination
-   * - By user
-   * - By group
+   * - By user, group, role
    * - Date range
+   * 
+   * TODO: Extension
+   * - Limit/Pagination
+   * - Sorting by category
+   * - Order
    * 
    * TODO: Super Extension
    * - Prefixed search
@@ -84,6 +87,7 @@ async function start() {
    * - Top N performers
    * - Granuality
    * - Performance comparisons over granularity
+   * - Min/Max sale count
    * 
    * TODO: Super Extension
    * - Prefixed search
@@ -99,9 +103,9 @@ async function start() {
    * @param {string} [req.query.endDate] - Aggregate sales up to (including) YYYY-MM-DD
    * @param {string} [req.query.minAmount] - Aggregate sales starting from a sale amount
    * @param {string} [req.query.maxAmount] - Aggregate sales up to (including) a sale amount
-   * @param {string} [req.query.endDate] - Aggregate sales up to (including) YYYY-MM-DD
    * @param {string[]} [req.query.userNames] - Aggregate sales specifically to user by username(s)
    * @param {string[]} [req.query.groupNames] - Aggregate sales of all users belonging to group by group name(s)
+   * @param {string[]} [req.query.roleNames] - Aggregate sales of all users belonging to role by role name(s)
    * @param {Object} res - Express response object.
    * @returns {Promise<Response>} Resolution payload.
    */
@@ -116,8 +120,10 @@ async function start() {
   : null;
     const groupNames = req.query.groupNames ? req.query.groupNames.split(',').map(s => s.trim()).filter(s => s.length > 0)
   : null;
-    if (userNames && groupNames) {
-      return res.status(400).json({ error: 'userNames and groupNames are mutually exclusive — provide one or the other' });
+    const roleNames = req.query.roleNames ? req.query.roleNames.split(',').map(s => s.trim()).filter(s => s.length > 0)
+  : null;
+    if ([userNames, groupNames, roleNames].filter(Boolean).length > 1) {
+      return res.status(400).json({ error: 'userNames, groupNames, and roles are mutually exclusive — provide only one' });
     }
 
     if (minAmount && isNaN(Number(minAmount))) {
@@ -140,6 +146,7 @@ async function start() {
         maxAmount,
         userNames,
         groupNames,
+        roleNames
       });
       return res.json({...salesPerformanceAggregation});
     } catch (err) {

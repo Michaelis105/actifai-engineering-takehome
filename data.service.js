@@ -10,20 +10,20 @@ async function getSales({startDate, endDate, userNames, groupNames}) {
     // return await dbClient.getSales(startDate, endDate, username, groupName);
 }
 
-async function getSalesPerformances({startDate, endDate, minAmount, maxAmount, userNames, groupNames}) {
+async function getSalesPerformances({startDate, endDate, minAmount, maxAmount, userNames, groupNames, roleNames}) {
     console.debug(...arguments)
     let salesPerformance;
-    if (!userNames && !groupNames) {
-        salesPerformance = await dbClient.aggregateSales({startDate, endDate, minAmount, maxAmount});
-    } else if (userNames) {
+    if (userNames) {
         salesPerformance = await dbClient.aggregateSalesByUser({userNames, startDate, endDate, minAmount, maxAmount});
     } else if (groupNames) {
         salesPerformance = await dbClient.aggregateSalesByGroup({groupNames, startDate, endDate, minAmount, maxAmount});
+    } else if (roleNames) {
+        salesPerformance = await dbClient.aggregateSalesByRole({roleNames, startDate, endDate, minAmount, maxAmount});
     } else {
-        throw new Error('Something went wrong...');
+        salesPerformance = await dbClient.aggregateSales({startDate, endDate, minAmount, maxAmount});
     }
     result = salesPerformance ? formatAggregateData(salesPerformance) : { message: "No sales data within search criteria."}
-    console.log(result)
+    console.debug(result)
     return result
 }
 
@@ -31,10 +31,10 @@ async function getSalesPerformances({startDate, endDate, minAmount, maxAmount, u
  * Reformats number "strings" into numbers.
  */
 function formatAggregateData(aggregateData) {
-    console.debug(aggregateData)
     return {
     ...aggregateData,
     avgSale:      parseFloat(aggregateData.avgSale),
+    stddevSale:   parseFloat(aggregateData.stddevSale),
     medianSale:   parseFloat(aggregateData.medianSale),
     saleCount:    parseInt(aggregateData.saleCount, 10),
     totalRevenue: parseInt(aggregateData.totalRevenue, 10),
