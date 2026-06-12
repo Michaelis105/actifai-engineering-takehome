@@ -146,10 +146,17 @@ const aggregateSalesQuery = `
     WHERE 1=1
       AND ($1::date IS NULL OR s.date >= $1::date)
       AND ($2::date IS NULL OR s.date <= $2::date)
+      AND ($3::int IS NULL OR s.amount >= $3::int)
+      AND ($4::int IS NULL OR s.amount <= $4::int)
     HAVING COUNT(s.id) > 0
   `;
-async function aggregateSales({ startDate, endDate }) {
-  const params = [startDate || null, endDate || null];
+async function aggregateSales({ startDate, endDate, minAmount, maxAmount}) {
+  const params = [
+    startDate || null, 
+    endDate   || null, 
+    minAmount  ? Number(minAmount) : null,
+    maxAmount  ? Number(maxAmount) : null
+  ];
   const salesAnalytics = await executeQuery(aggregateSalesQuery, params);
   return salesAnalytics.rows[0] || null;
 }

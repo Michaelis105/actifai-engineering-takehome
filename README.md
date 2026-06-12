@@ -39,7 +39,18 @@ your browser. You should see a "Hello World" message.
 
 # Usage
 
-TODO
+GET http://localhost:3000/api/sales-analysis
+
+Query Parameters:
+- Optional
+    - startDate - Aggregate sales starting from YYYY-MM-DD
+    - endDate - Aggregate sales up to (including) YYYY-MM-DD
+    - minAmount - Aggregate sales starting from a sale amount
+    - maxAmount - Aggregate sales up to (including) a sale amount
+- Zero or exactly one of:
+    - userNames - Aggregate sales specifically to user by username(s)
+    - groupNames - Aggregate sales of all users belonging to group by group name(s)
+    - roleNames - Aggregate sales of all users belonging to role by role name(s)
 
 ## Help
 
