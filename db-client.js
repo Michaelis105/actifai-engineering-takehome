@@ -88,9 +88,8 @@ const seedDatabase = async function() {
   console.log('Seeded sales table.');
 }
 
-const getAllSalesQuery = `SELECT * FROM sales;`
-
-const getSales = async function(startDate, endDate, username, groupName) {
+const getSalesQuery = `SELECT * FROM sales;`
+const getSales = async function({startDate, endDate, username, groupName}) {
     const params = [];
     let query = `
         SELECT
@@ -132,25 +131,95 @@ const getSales = async function(startDate, endDate, username, groupName) {
     return sales.rows
 }
 
+const aggregateSalesQuery = `
+    SELECT
+      MIN(s.amount)                         AS "minSale",
+      MAX(s.amount)                         AS "maxSale",
+      ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
+      ROUND(
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
+      , 2)                                  AS "medianSale",
+      COUNT(s.id)                           AS "saleCount",
+      SUM(s.amount)                         AS "totalRevenue"
+    FROM sales s
+    WHERE 1=1
+      AND ($1::date IS NULL OR s.date >= $1::date)
+      AND ($2::date IS NULL OR s.date <= $2::date)
+    HAVING COUNT(s.id) > 0
+  `;
+async function aggregateSales({ startDate, endDate }) {
+  const params = [startDate || null, endDate || null];
+  const salesAnalytics = await executeQuery(aggregateSalesQuery, params);
+  //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
+  return salesAnalytics.rows[0] || null;
+}
+
+const aggregateSalesByUserQuery = `
+    SELECT
+      u.name                                AS "username",
+      MIN(s.amount)                         AS "minSale",
+      MAX(s.amount)                         AS "maxSale",
+      ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
+      ROUND(
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
+      , 2)                                  AS "medianSale",
+      COUNT(s.id)                           AS "saleCount",
+      SUM(s.amount)                         AS "totalRevenue"
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    WHERE u.name = $1
+      AND ($2::date IS NULL OR s.date >= $2::date)
+      AND ($3::date IS NULL OR s.date <= $3::date)
+    GROUP BY u.name
+    HAVING COUNT(s.id) > 0
+  `;
+async function aggregateSalesByUser({ username, startDate, endDate }) {
+  const params = [username, startDate || null, endDate || null];
+  const salesAnalytics = await executeQuery(aggregateSalesByUserQuery, params);
+  //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
+  return salesAnalytics.rows[0] || null;
+}
+
+const aggregateSalesByGroupQuery = `
+    SELECT
+      g.name                                AS "groupName",
+      MIN(s.amount)                         AS "minSale",
+      MAX(s.amount)                         AS "maxSale",
+      ROUND(AVG(s.amount)::numeric, 2)      AS "avgSale",
+      ROUND(
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY s.amount)::numeric
+      , 2)                                  AS "medianSale",
+      COUNT(s.id)                           AS "saleCount",
+      SUM(s.amount)                         AS "totalRevenue"
+    FROM sales s
+    JOIN users u ON s.user_id = u.id
+    JOIN user_groups ug ON u.id = ug.user_id
+    JOIN groups g ON ug.group_id = g.id
+    WHERE g.name = $1
+      AND ($2::date IS NULL OR s.date >= $2::date)
+      AND ($3::date IS NULL OR s.date <= $3::date)
+    GROUP BY g.name
+    HAVING COUNT(s.id) > 0
+  `;
+async function aggregateSalesByGroup({ groupName, startDate, endDate }) {
+  const params = [groupName, startDate || null, endDate || null];
+  const salesAnalytics = await executeQuery(aggregateSalesByGroupQuery, params);
+  //console.debug(`salesAnalytics: ${JSON.stringify(salesAnalytics)}`)
+  return salesAnalytics.rows[0] || null;
+}
+
 /**
  * Handles all DB connections and query executions
  * @param {string} query PostgreSQL query
+ * @param {string} query PostgreSQL parameters for the query as applicable
  * @returns Applicable rows or log statements.
  */
-const executeQuery = async function(query) {
+const executeQuery = async function(query, params) {
     try {
-        // TODO: Optimize keeping connection open and graceful close on app terminate
-        // or allocate from connection pool.
-        // console.debug("Opening connection...")
-        //await pgclient.connect()
-        return await pgclient.query(query);
+        return await pgclient.query(query, params);
     } catch (err) {
-        // TODO: Handle
-    }
-    finally {
-        //console.debug("Closing connection...")
-        //await pgclient.end(); // Manually closes the connection safely
+        console.log(`Something went wrong: ${err}`)
     }
 }
 
-module.exports = { seedDatabase, getSales };
+module.exports = { seedDatabase, getSales, aggregateSales, aggregateSalesByUser, aggregateSalesByGroup, executeQuery };

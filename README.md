@@ -37,6 +37,9 @@ define your endpoints.
 4. You now have a database and server running on your machine. You can test it by navigating to `http://localhost:3000/health` in
 your browser. You should see a "Hello World" message.
 
+# Usage
+
+TODO
 
 ## Help
 
